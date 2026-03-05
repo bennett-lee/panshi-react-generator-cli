@@ -73,11 +73,49 @@ try {
   console.error('⚠️ [GitHub Copilot] 配置注入异常:', e.message);
 }
 
-// 4. 为 其他一切 AI (Cline / Windsurf / Codeium 等) 生成通用文档
+// 4. 为 Windsurf 生成/追加 .windsurfrules
+const windsurfRulePath = path.join(projectDir, '.windsurfrules');
+try {
+  let existingContent = '';
+  if (fs.existsSync(windsurfRulePath)) {
+    existingContent = fs.readFileSync(windsurfRulePath, 'utf8');
+  }
+  
+  if (!existingContent.includes('Panshi framework')) {
+    const appendText = `\n\n# Panshi React Generator Rules\nWhen converting designs or writing page components, MUST adhere to:\n${purePrompt}`;
+    fs.writeFileSync(windsurfRulePath, existingContent + appendText);
+    console.log('✅ [Windsurf] 成功注入组件生成规则至 .windsurfrules');
+  } else {
+    console.log('👍 [Windsurf] .windsurfrules 规则已处于最新状态！');
+  }
+} catch(e) {
+  console.error('⚠️ [Windsurf] 配置注入异常:', e.message);
+}
+
+// 5. 为 Cline 生成/追加 .clinerules
+const clineRulePath = path.join(projectDir, '.clinerules');
+try {
+  let existingContent = '';
+  if (fs.existsSync(clineRulePath)) {
+    existingContent = fs.readFileSync(clineRulePath, 'utf8');
+  }
+  
+  if (!existingContent.includes('Panshi framework')) {
+    const appendText = `\n\n# Panshi React Generator Rules\nWhen converting designs or writing page components, MUST adhere to:\n${purePrompt}`;
+    fs.writeFileSync(clineRulePath, existingContent + appendText);
+    console.log('✅ [Cline] 成功注入组件生成规则至 .clinerules');
+  } else {
+    console.log('👍 [Cline] .clinerules 规则已处于最新状态！');
+  }
+} catch(e) {
+  console.error('⚠️ [Cline] 配置注入异常:', e.message);
+}
+
+// 6. 为 其他原生 AI (兜底说明书书写) 生成通用文档
 const genericRulePath = path.join(projectDir, 'panshi-code-standard.md');
 try {
-  fs.writeFileSync(genericRulePath, `# 磐石前端规范\n请所有 AI 代码生成工具在生成前台组件时，严格遵循以下路由附带参数：\n${purePrompt}`);
-  console.log('✅ [通用型大模型] 成功抽取通用指导书至当前目录：panshi-code-standard.md');
+  fs.writeFileSync(genericRulePath, `# 磐石前端规范\n包含 WebStorm 的原生 AI / ChatGPT 等纯聊天时：如需生成前端组件，按以下规则操作：\n${purePrompt}`);
+  console.log('✅ [通用型大模型助手] 成功生成兜底指导书 panshi-code-standard.md，使用其它 AI 随时 @ 它即可。');
 } catch(e) {}
 
-console.log('\n🚀 磐石发版全宇宙适配助手运行完毕！现在您可以叫公司所有使用任何 IDE 的人尽情差遣 AI 了。');
+console.log('\n🚀 磐石发版全宇宙适配助手运行完毕！现在您可以叫公司所有使用任何主流 AI IDE 的人尽情差遣 AI 了。');
