@@ -14,13 +14,15 @@ category: development
 risk: safe
 ---
 
-# panshi-core-architecture
+# Panshi Framework Rules
+When generating code or extracting data within the Panshi framework, MUST adhere to:
 
-## Purpose
+## PANSHI CORE ARCHITECTURE RULES
+
 This skill consolidates the core foundational guidelines for building React applications within the Panshi framework (\`@pms/console\`).
 
 ## 1. Components Overview & Import Strategy (CRITICAL)
-**CRITICAL RULE:** DO NOT manually import from \`antd\`, \`@ant-design/pro-components\`, or other open-source libs for major UI components. Always use the corporate standard \`PmsComponents\`.
+**CRITICAL RULE:** ALWAYS prioritize the corporate standard \`PmsComponents\` from \`@pms/console\`. If a component is NOT available in \`PmsComponents\`, import it from \`antd\`. DO NOT import from \`@ant-design/pro-components\` directly.
 
 \\\`\\\`\\\`javascript
 import { request, user, file, server, socket, history, hooks, PmsComponents } from '@pms/console';
