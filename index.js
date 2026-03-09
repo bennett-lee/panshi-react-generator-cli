@@ -5,117 +5,315 @@ const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
 
-console.log('🔄 开始安装 panshi-react-generator 技能...');
+console.log('🔄 开始安装 Panshi Framework AI 规则(优化聚合版)...');
 
-// 技能内容（直接作为字符串，避免附带多余文件）
-const skillContent = "---\nname: panshi-react-generator\ndescription: \"This skill should be used when translating .pen files into React code, ensuring it follows the Panshi route configuration rules (props to page, auth, org rendering, breadcrumbs).\"\ncategory: development\nrisk: safe\n---\n\n# panshi-react-generator\n\n## Purpose\nThis skill dictates the rules for generating React code from `.pen` design files within the project, specifically adhering to the **Panshi framework's static route configuration properties**.\n\n## When to Use This Skill\nThis skill should be used when the user asks to:\n- Generate React code from a `.pen` design file.\n- Convert `.pen` files into React components that need routing configuration over the Panshi platform.\n- The user mentions \"生成react代码\", \"根据 .pen 文件生成代码\", or asks for React components to be configured.\n\n## Tools to use\nYou have access to the Pencil MCP Server. ALWAYS use the following MCP tools to read the .pen design files: \n- `mcp_pencil_batch_get`: Read the node structure of .pen files.\n- `mcp_pencil_get_guidelines`: Get the general guidelines and schemas.\n- `mcp_pencil_get_variables`: Read variable or theme maps.\n\n## Generation Rules & Guidelines\nWhen generating React code, you MUST attach the following static properties to the exported page component based on the context of the page:\n\n### 1. 通用静态属性 (General Component Route Props)\n```javascript\n// Example Page Component\nconst MyPage = () => {\n  return <div>内容</div>;\n};\n\n// 1. menuName (必填): 菜单显示的名称\nMyPage.menuName = \"页面名称\";\n\n// 2. organizationType (选填): 控制页面在哪些组织层级显示 (1: 企业, 2: 项目, 3: 子公司)\nMyPage.organizationType = [1, 2];\n\n// 3. order (选填): 指定菜单渲染顺序\nMyPage.order = 3;\n\n// 4. hideRenderChild (选填): 是否在子级导航中渲染自身\nMyPage.hideRenderChild = true;\n\n// 5. style (选填): 页面容器样式\nMyPage.style = { padding: 0 };\n```\n\n### 2. 面包屑与高级隐藏 (Breadcrumbs and Hiding Props)\nIf the page is a child route or detail route not explicitly in the menu, it might need to hide its menu or breadcrumb.\n- `MyPage.hideMenu = true;` (在菜单组件中隐藏自身，面包屑中也会随之隐藏)\n- `MyPage.hideBreadCrumb = true;` (隐藏面包屑)\n- `MyPage.closeAuthValidation = true;` (开启权限模式下，让页面自行处理权限逻辑，中台不干涉。)\n\n### 3. 按组织架构渲染 (Conditional organization rendering)\n当需要“一套代码、多层级适配”时，通过设置静态属性 `organizationType` 来实现。\n例如，如果只在企业层和项目层显示：\n```javascript\nMyPage.organizationType = [1, 2]; \n```\n\n### 4. 编程式路由跳转带面包屑名称 (Programmatic Routing with Breadcrumbs)\n对于非菜单直接关联的详情页（叶子节点），需要通过跳转时的 `state` 传递 `pathName` 来定义面包屑显示的名称。\n\n```javascript\nimport { useHistory } from 'umi';\n\nconst ListComponent = () => {\n    const history = useHistory();\n\n    const goToDetail = () => {\n        history.push({\n            pathname: '/path/to/detail',\n            state: { pathName: '详情页标题' },\n        });\n    };\n    return <a onClick={goToDetail}>查看详情</a>;\n}\n```\nOr using `<Link>`:\n```javascript\nimport { Link } from 'umi';\n\n<Link to={{\n  pathname: '/path/to/detail',\n  state: { pathName: '详情页标题' },\n}}>查看详情</Link>\n```\n\n### 5. 自己控制路由的权限 (Custom Route Auth Control)\n除了在组件级别配置 `closeAuthValidation` 外，全局路由权限也可以在项目的 `app.ts` 中通过 `patchRoutes` 钩子，结合 `@pms/console` 的 `auth` 模块进行更细粒度的路由权限过滤。在生成代码时，如无需组件级静态拦截，需要提醒用户在 `app.ts` 层配置或默认开启细粒度控制。\n\n## Generation Workflow\n1. Analyze the `.pen` file using `mcp_pencil_batch_get` and related tools.\n2. Determine if the component being extracted acts as a page-level component or a sub-page (e.g., Detail page).\n3. If it is a page component, infer the exact `menuName`, `order`, and basic styling like `style: { padding: 0 }`.\n4. If it's a list page navigating to a detail page, ensure the navigation method (either via `history.push` or `<Link>`) passes `state: { pathName: 'xxx' }`.\n5. Write React UI code reflecting the .pen file design structure using modern React best practices.\n6. Attach the correct static properties (`menuName`, `organizationType`, etc.) to the very bottom of the generated React file right before `export default`.";
+const skillContent1 = `---
+name: panshi-core-architecture
+description: "This skill defines the core architecture, routing, auto-import mapping, user context, request handling, auth, and socket communication for the Panshi framework (@pms/console)."
+category: development
+risk: safe
+---
+
+# panshi-core-architecture
+
+## Purpose
+This skill consolidates the core foundational guidelines for building React applications within the Panshi framework (\`@pms/console\`).
+
+## 1. Components Overview & Import Strategy (CRITICAL)
+**CRITICAL RULE:** DO NOT manually import from \`antd\`, \`@ant-design/pro-components\`, or other open-source libs for major UI components. Always use the corporate standard \`PmsComponents\`.
+
+\\\`\\\`\\\`javascript
+import { request, user, file, server, socket, history, hooks, PmsComponents } from '@pms/console';
+// ALWAYS DESTRUCTURE FROM PmsComponents
+const { PageContainer, Card, Table, ProForm, ProFormText, Chart, CompanyLocal } = PmsComponents;
+\\\`\\\`\\\`
+
+## 2. Umi Routing & Page Generation Rules
+When creating page components, automatically identify Umi routing scenarios and attach static properties.
+
+\\\`\\\`\\\`javascript
+const MyPage = () => { return <div>内容</div>; };
+
+// Routing Props
+MyPage.menuName = "页面名称"; // (Required) Menu Name
+MyPage.organizationType = [1, 2]; // (Optional) Level Filter: 1:Enterprise, 2:Project, 3:SubCompany
+MyPage.order = 3; 
+MyPage.hideMenu = true; // Hides from menu
+MyPage.hideBreadCrumb = true; // Hides breadcrumb
+MyPage.closeAuthValidation = true; // Exclude from global auth interception
+
+export default MyPage;
+\\\`\\\`\\\`
+**Dynamic Breadcrumbs via history state:**
+\\\`\\\`\\\`javascript
+history.push({ pathname: '/detail', state: { pathName: '详情名称', formName: '表单名称' }});
+\\\`\\\`\\\`
+
+## 3. User & Level Context (\`user\`)
+\\\`\\\`\\\`javascript
+const { mid, userName, coId, coName, organizationName } = user; 
+// CRITICAL: NEVER strictly rely on user.type. Use the boolean flags:
+if (user.company) {} // At Enterprise Level
+if (user.subCompany) {} // At SubCompany Level
+if (user.project) {} // At Project Level
+\\\`\\\`\\\`
+
+## 4. API Requests (\`request\`)
+\\\`\\\`\\\`javascript
+// Standard requests
+request.get('/api/users', { params: { id: 1 } });
+request.post('/api/users', { data: { name: 'Admin' } });
+
+// Uploads MUST use FormData and requestType: 'form' (No manual headers)
+request.post('/api/upload', formData, { requestType: 'form' });
+
+// Downloads MUST use responseType: 'blob'
+request.get('/api/export', { params, responseType: 'blob' });
+\\\`\\\`\\\`
+
+## 5. Hooks for Permissions (\`hooks\`)
+Button/Functional Auth (Conditional Rendering)
+\\\`\\\`\\\`javascript
+const { useFunCode } = hooks;
+const funAuth = useFunCode({ 'btn_add': { status: false } });
+{funAuth['btn_add'] && <Button>新增</Button>}
+\\\`\\\`\\\`
+
+## 6. Realtime Communication (\`socket\`)
+\\\`\\\`\\\`javascript
+// Component Mount
+const socketGroup = socket.createGroup({ group: 'custom-topic', itype: 'my_event' });
+const stopListen = socket.listen((msg) => { if (msg.itype === 'my_event') console.log(msg.payload); });
+
+// Component Unmount (CRITICAL: MUST CLEANUP TO PREVENT LEAKS)
+return () => { stopListen(); socketGroup.logout(); };
+\\\`\\\`\\\`
+`;
+
+const skillContent2 = `---
+name: panshi-pro-components
+description: "This skill defines how to use high-level layout, table, form, chart, and description components in the Panshi framework (@pms/console). You should proactively and automatically map generic component requests (like 'table', 'form', 'chart') to these specific Panshi components without the user explicitly naming them."
+category: development
+risk: safe
+---
+
+# panshi-pro-components
+
+## Purpose
+Consolidated guide for data display (Table, Descriptions, Chart) and data entry (ProForm, PageForm) using \`PmsComponents\` in the Panshi framework. 
+**PROACTIVE MAPPING RULE:** If the user asks for a "table", automatically use \`Table\` (ProTable). If they ask for a "form", automatically use \`ProForm\` or \`PageForm\`. Do not wait for the user to explicitly specify the exact component name.
+
+## 1. ProTable (\`Table\`)
+Panshi \`Table\` manages pagination and loading automatically using \`request\`.
+
+\\\`\\\`\\\`javascript
+import { PmsComponents, request } from '@pms/console';
+const { Table } = PmsComponents;
+import { useRef } from 'react';
+
+const MyList = () => {
+  const actionRef = useRef(); // Use actionRef.current?.reload() to refresh data
+
+  return (
+    <Table
+      actionRef={actionRef}
+      request={async (params) => {
+        const res = await request('/api/getList', { method: 'get', params });
+        // Must return this exact structure
+        return { data: res.list || [], success: true, total: res.total || 0 };
+      }}
+      rowKey="id"
+      columns={[
+         { title: '状态', dataIndex: 'status', valueType: 'select', valueEnum: { 'all': {text: '全部'} } },
+         { title: '创建时间', dataIndex: 'createdAt', valueType: 'dateTime' }
+      ]}
+    />
+  );
+};
+\\\`\\\`\\\`
+
+## 2. ProForm & PageForm
+- **\`ProForm\`**: Wraps form items, auto-handles initial data via \`request\`, and auto-handles loading state via \`onFinish\`.
+- **\`PageForm\`**: A full-page version of ProForm. **MUST** add static prop \`formPage = true\` to the exported component container.
+
+\\\`\\\`\\\`javascript
+const { PageForm, ProForm, ProFormText } = PmsComponents;
+
+const MyPageForm = ({ editId }) => {
+  return (
+    <PageForm
+      card={true}
+      request={async () => {
+         if (!editId) return {};
+         return await request('/api/detail', { params: { id: editId } }); // Auto fills fields
+      }}
+      onFinish={async (values) => {
+         await request('/api/save', { method: 'post', data: values });
+         return true;
+      }}
+    >
+      <ProFormText name="title" label="标题" rules={[{required: true}]} />
+    </PageForm>
+  );
+};
+
+// CRITICAL for PageForm
+MyPageForm.formPage = true; 
+MyPageForm.hideMenuComponent = true;
+\\\`\\\`\\\`
+
+## 3. ProDescriptions
+Displays read-only items (local or remote).
+\\\`\\\`\\\`javascript
+const { ProDescriptions } = PmsComponents;
+<ProDescriptions
+  title="详情"
+  request={async () => ({ success: true, data: await request('/api/detail') })}
+  columns={[
+    { dataIndex: 'username', label: '名称' },
+    { dataIndex: 'price', label: '金额', valueType: 'money' }
+  ]}
+/>
+\\\`\\\`\\\`
+
+## 4. ProChart (\`Chart\`)
+Unified chart container mapping.
+\\\`\\\`\\\`javascript
+const { Chart } = PmsComponents;
+<Chart 
+  chartType="Line" // Or 'Column', 'Bar', 'Pie', 'DualAxes'
+  data={dataArray}
+  xField="year"
+  yField="value"
+  seriesField="category"
+/>
+// DualAxes: yField=['val1', 'count1'] 
+\\\`\\\`\\\`
+`;
+
+const skillContent3 = `---
+name: panshi-business-components
+description: "This skill defines the usage of specialized business components like organization tree, member selection, and file uploads in the Panshi framework (@pms/console)."
+category: development
+risk: safe
+---
+
+# panshi-business-components
+
+## Purpose
+Consolidated guide for \`CompanyLocal\`, \`PbsEmployeesModal\`, and upload components imported from \`PmsComponents\` in \`@pms/console\`.
+**PROACTIVE MAPPING RULE:** Automatically map natural language requests to these specialized business components. For example: If the user asks for "选人组件", "人员树", or "选人弹窗", use \`PbsEmployeesModal\`. If they ask for "组织树" or "部门树", use \`CompanyLocal\`. If they ask for "文件上传" or "拖拽上传", use \`ProFormUploadDragger\` / \`ProFormUploadButton\`. Do not expect the user to type these exact technical terms.
+
+## 1. Organization Tree & Member Tree (\`CompanyLocal\` & \`PbsEmployeesModal\`)
+
+**CRITICAL LAYOUT RULE**: \`CompanyLocal\` MUST be wrapped in a container that has a defined \`height\`, otherwise it won't render.
+
+### Normal Org Tree
+\\\`\\\`\\\`javascript
+import { PmsComponents } from '@pms/console';
+const { CompanyLocal, PbsEmployeesModal } = PmsComponents;
+
+<div style={{ height: 400 }}> {/* Height is MANDATORY */}
+  <CompanyLocal onChange={(keys, nodes) => console.log(keys)} />
+</div>
+\\\`\\\`\\\`
+
+### Member Selection Modal
+\\\`\\\`\\\`javascript
+<PbsEmployeesModal
+  open={visible}
+  title="选择员工"
+  companyProps={{ showMember: true }} // Tells the inner tree to load members
+  onChange={(keys, nodes) => { /* Handle selection */ }}
+  onClose={() => setVisible(false)}
+/>
+\\\`\\\`\\\`
+
+## 2. File Uploads & File Preview
+File owner constraints are defined using \`subSystem\` and \`fileOwnerType\` instead of arbitrary bizTypes.
+
+\\\`\\\`\\\`javascript
+import { PmsComponents, file } from '@pms/console';
+const { ProFormUploadDragger, ProFormUploadButton } = PmsComponents;
+
+// In a Form:
+<ProFormUploadDragger
+  name="attachments"
+  label="附件"
+  subSystem={2}       // 2 = Internal Company Business
+  fileOwnerType={2}   // 2 = Enterprise Level
+  fieldProps={{
+    onSuccess: (val) => { console.log("Uploaded File Details", val); }
+  }}
+/>
+
+// Trigger API Preview manually:
+// file.preview(file_uuid);
+\\\`\\\`\\\`
+`;
 
 // ==================
-// 全渠道 IDE 规则注入逻辑
+// 全渠道 IDE 规则注入逻辑 (优化版)
 // ==================
 const projectDir = process.cwd();
 
-// 1. Antigravity 专属系统级安装
-const antigravityDir = path.join(os.homedir(), '.gemini', 'antigravity', 'skills', 'panshi-react-generator');
+const antigravityDir1 = path.join(os.homedir(), '.gemini', 'antigravity', 'skills', 'panshi-core-architecture');
+const antigravityDir2 = path.join(os.homedir(), '.gemini', 'antigravity', 'skills', 'panshi-pro-components');
+const antigravityDir3 = path.join(os.homedir(), '.gemini', 'antigravity', 'skills', 'panshi-business-components');
+
 try {
-  if (!fs.existsSync(antigravityDir)) fs.mkdirSync(antigravityDir, { recursive: true });
-  fs.writeFileSync(path.join(antigravityDir, 'SKILL.md'), skillContent);
-  console.log('✅ [Antigravity/Claude] 全局规则安装成功！');
-} catch (e) {
-  console.error('⚠️ [Antigravity] 安装跳过，原因：', e.message);
+  if (!fs.existsSync(antigravityDir1)) fs.mkdirSync(antigravityDir1, { recursive: true });
+  fs.writeFileSync(path.join(antigravityDir1, 'SKILL.md'), skillContent1);
+  if (!fs.existsSync(antigravityDir2)) fs.mkdirSync(antigravityDir2, { recursive: true });
+  fs.writeFileSync(path.join(antigravityDir2, 'SKILL.md'), skillContent2);
+  if (!fs.existsSync(antigravityDir3)) fs.mkdirSync(antigravityDir3, { recursive: true });
+  fs.writeFileSync(path.join(antigravityDir3, 'SKILL.md'), skillContent3);
+  console.log('✅ [Antigravity] 聚合版核心技能全局安装成功！(已合并3大模块)');
+} catch (e) { 
+  console.error("Antigravity SDK Err:", e);
 }
 
-// ==============
-// 以下为各家 IDE 的项目级配置注入
-// ==============
+const purePrompt1 = "\n--- PANSHI CORE ARCHITECTURE RULES ---\n" + (skillContent1.split("## Purpose")[1] || skillContent1);
+const purePrompt2 = "\n--- PANSHI PRO COMPONENTS RULES ---\n" + (skillContent2.split("## Purpose")[1] || skillContent2);
+const purePrompt3 = "\n--- PANSHI BUSINESS COMPONENTS RULES ---\n" + (skillContent3.split("## Purpose")[1] || skillContent3);
 
-// 【核心 Prompt 提纯】：把前面的 markdown 描述纯粹化
-const purePrompt = "\n" + skillContent.split("## Generation Rules & Guidelines")[1] || skillContent;
+const purePrompt = purePrompt1 + "\n" + purePrompt2 + "\n" + purePrompt3;
 
-// 2. 为 Cursor 生成/追加 .cursorrules
-const cursorRulePath = path.join(projectDir, '.cursorrules');
-try {
-  let existingContent = '';
-  if (fs.existsSync(cursorRulePath)) {
-    existingContent = fs.readFileSync(cursorRulePath, 'utf8');
+function injectRule(filePath, targetName) {
+  try {
+    let existingContent = '';
+    if (fs.existsSync(filePath)) {
+      existingContent = fs.readFileSync(filePath, 'utf8');
+    }
+    
+    const magicMark = '# Panshi Framework Rules';
+    if (existingContent.includes(magicMark)) {
+      existingContent = existingContent.split(magicMark)[0];
+    } else if (existingContent.includes('# Panshi React Generator Rules')) {
+      existingContent = existingContent.split('# Panshi React Generator Rules')[0];
+    }
+    
+    const appendText = `\n\n${magicMark}\nWhen generating code or extracting data within the Panshi framework, MUST adhere to:\n${purePrompt}`;
+    fs.writeFileSync(filePath, existingContent.trim() + appendText);
+    console.log(`✅ [${targetName}] 成功注入聚合版集成规则`);
+  } catch(e) {
+    console.error(`⚠️ [${targetName}] 配置注入异常:`, e.message);
   }
-  
-  if (!existingContent.includes('Panshi framework')) {
-    const appendText = `\n\n# Panshi React Generator Rules\nWhen converting designs or writing page components, MUST adhere to:\n${purePrompt}`;
-    fs.writeFileSync(cursorRulePath, existingContent + appendText);
-    console.log('✅ [Cursor] 成功注入组件生成规则至 .cursorrules');
-  } else {
-    console.log('👍 [Cursor] .cursorrules 规则已处于最新状态！');
-  }
-} catch(e) {
-  console.error('⚠️ [Cursor] 配置注入异常:', e.message);
 }
 
-// 3. 为 GitHub Copilot 生成 .github/copilot-instructions.md
+injectRule(path.join(projectDir, '.cursorrules'), 'Cursor');
+injectRule(path.join(projectDir, '.windsurfrules'), 'Windsurf');
+injectRule(path.join(projectDir, '.clinerules'), 'Cline');
+
 const githubDir = path.join(projectDir, '.github');
 const copilotRulePath = path.join(githubDir, 'copilot-instructions.md');
-try {
-  if (!fs.existsSync(githubDir)) fs.mkdirSync(githubDir, { recursive: true });
-  
-  let existingContent = '';
-  if (fs.existsSync(copilotRulePath)) {
-    existingContent = fs.readFileSync(copilotRulePath, 'utf8');
-  }
-  
-  if (!existingContent.includes('Panshi framework')) {
-    const appendText = `\n\n# Panshi React Generator Rules\nWhen generating React UI components, MUST attach the static properties:\n${purePrompt}`;
-    fs.writeFileSync(copilotRulePath, existingContent + appendText);
-    console.log('✅ [GitHub Copilot] 成功注入规则至 .github/copilot-instructions.md');
-  } else {
-    console.log('👍 [GitHub Copilot] 规则已处于最新状态！');
-  }
-} catch(e) {
-  console.error('⚠️ [GitHub Copilot] 配置注入异常:', e.message);
-}
+if (!fs.existsSync(githubDir)) fs.mkdirSync(githubDir, { recursive: true });
+injectRule(copilotRulePath, 'GitHub Copilot');
 
-// 4. 为 Windsurf 生成/追加 .windsurfrules
-const windsurfRulePath = path.join(projectDir, '.windsurfrules');
-try {
-  let existingContent = '';
-  if (fs.existsSync(windsurfRulePath)) {
-    existingContent = fs.readFileSync(windsurfRulePath, 'utf8');
-  }
-  
-  if (!existingContent.includes('Panshi framework')) {
-    const appendText = `\n\n# Panshi React Generator Rules\nWhen converting designs or writing page components, MUST adhere to:\n${purePrompt}`;
-    fs.writeFileSync(windsurfRulePath, existingContent + appendText);
-    console.log('✅ [Windsurf] 成功注入组件生成规则至 .windsurfrules');
-  } else {
-    console.log('👍 [Windsurf] .windsurfrules 规则已处于最新状态！');
-  }
-} catch(e) {
-  console.error('⚠️ [Windsurf] 配置注入异常:', e.message);
-}
-
-// 5. 为 Cline 生成/追加 .clinerules
-const clineRulePath = path.join(projectDir, '.clinerules');
-try {
-  let existingContent = '';
-  if (fs.existsSync(clineRulePath)) {
-    existingContent = fs.readFileSync(clineRulePath, 'utf8');
-  }
-  
-  if (!existingContent.includes('Panshi framework')) {
-    const appendText = `\n\n# Panshi React Generator Rules\nWhen converting designs or writing page components, MUST adhere to:\n${purePrompt}`;
-    fs.writeFileSync(clineRulePath, existingContent + appendText);
-    console.log('✅ [Cline] 成功注入组件生成规则至 .clinerules');
-  } else {
-    console.log('👍 [Cline] .clinerules 规则已处于最新状态！');
-  }
-} catch(e) {
-  console.error('⚠️ [Cline] 配置注入异常:', e.message);
-}
-
-// 6. 为 其他原生 AI (兜底说明书书写) 生成通用文档
 const genericRulePath = path.join(projectDir, 'panshi-code-standard.md');
 try {
-  fs.writeFileSync(genericRulePath, `# 磐石前端规范\n包含 WebStorm 的原生 AI / ChatGPT 等纯聊天时：如需生成前端组件，按以下规则操作：\n${purePrompt}`);
-  console.log('✅ [通用型大模型助手] 成功生成兜底指导书 panshi-code-standard.md，使用其它 AI 随时 @ 它即可。');
+  fs.writeFileSync(genericRulePath, `# 磐石前端规范 (Panshi Code Standard - 聚合版)\n\n遇到需求时自动使用以下三大规范模块：\n${purePrompt}`);
+  console.log('✅ [通用型大模型助手] 成功生成兜底指导书 panshi-code-standard.md');
 } catch(e) {}
 
-console.log('\n🚀 磐石发版全宇宙适配助手运行完毕！现在您可以叫公司所有使用任何主流 AI IDE 的人尽情差遣 AI 了。');
+console.log('\n🚀 磐石架构聚合化清理与部署完毕！代码仓库与提示词体积大幅缩减、条理更加清晰！');
