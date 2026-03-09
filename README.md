@@ -36,7 +36,7 @@ npx bennett-lee/panshi-react-generator-cli
 
 ### 核心架构规范 (Core Architecture)
 
-- **强制导入策略**：禁止直接从 `antd` 导入，统一使用 `import { PmsComponents } from '@pms/console'`。
+- **强制导入策略**：优先使用 `@pms/console` 中的 `PmsComponents`。若缺失所需组件，允许从 `antd` 导入。严禁直连 `@ant-design/pro-components`。
 - **Umi 路由扩展**：支持 `menuName`, `organizationType`, `order` 等静态属性的自动生成。
 - **权限控制**：通过 `hooks.useFunCode` 实现功能点按钮权限。
 
