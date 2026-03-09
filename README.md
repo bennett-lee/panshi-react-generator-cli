@@ -6,6 +6,7 @@
 
 - **多 IDE 自动化注入**：支持一键将规则注入到以下环境：
   - **Cursor** (`.cursorrules`)
+  - **Trae** (`.traerules`)
   - **Windsurf** (`.windsurfrules`)
   - **Cline** (`.clinerules`)
   - **GitHub Copilot** (`.github/copilot-instructions.md`)

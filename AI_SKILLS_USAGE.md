@@ -12,7 +12,7 @@
 2. **`panshi-pro-components` (高级组件域)**: 负责接管大表单、高级表格、详情页及可视化图表。
 3. **`panshi-business-components` (业务特供域)**: 负责接管业务耦合性极强的组织树、选人组件与附件上传。
 
-系统已经在您的工作区自动生成了 `.cursorrules` / `.windsurfrules` 等文件。AI 在读取您的指令时，会**自动**在底层应用这些规范。
+系统已经在您的工作区自动生成了 `.cursorrules` / `.traerules` / `.windsurfrules` 等文件。AI 在读取您的指令时，会**自动**在底层应用这些规范。
 
 ---
 

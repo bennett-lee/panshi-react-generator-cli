@@ -304,6 +304,7 @@ function injectRule(filePath, targetName) {
 injectRule(path.join(projectDir, '.cursorrules'), 'Cursor');
 injectRule(path.join(projectDir, '.windsurfrules'), 'Windsurf');
 injectRule(path.join(projectDir, '.clinerules'), 'Cline');
+injectRule(path.join(projectDir, '.traerules'), 'Trae');
 
 const githubDir = path.join(projectDir, '.github');
 const copilotRulePath = path.join(githubDir, 'copilot-instructions.md');
