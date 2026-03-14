@@ -1,67 +1,96 @@
-# Panshi React Generator Skill (磐石 React 生成器助手)
+# Panshi React Generator CLI
 
-`panshi-react-generator-skill` 是一款专为 **Panshi (磐石) 框架**（基于 `@pms/console`）设计的 AI 辅助开发工具。它通过自动化注入开发规则和 AI 技能，让 AI 编程助手（如 Cursor, Windsurf, Cline 等）能够深刻理解磐石框架的业务规范、组件用法及底层架构，从而生成高质量、符合企业标准的 React 代码。
+`panshi-react-generator-cli` 用来把磐石前端规则稳定地注入到常见 AI IDE 配置文件里，并为 Gemini Antigravity 安装 1 个对外入口 skill 和 3 个内部子 skill。
 
-## 🌟 核心特性
+## 它实际做什么
 
-- **多 IDE 自动化注入**：支持一键将规则注入到以下环境：
-  - **Cursor** (`.cursorrules`)
-  - **Trae** (`.traerules`)
-  - **Windsurf** (`.windsurfrules`)
-  - **Cline** (`.clinerules`)
-  - **GitHub Copilot** (`.github/copilot-instructions.md`)
-- **聚合版 AI 技能包**：内置三大核心模块，覆盖磐石开发全流程：
-  - **Panshi Core Architecture**: 核心架构、Umi 路由、用户上下文、全局 Request 及 Socket 通信规范。
-  - **Panshi Pro Components**: 表格 (ProTable)、表单 (ProForm/PageForm)、图表及描述列表的自动映射规则。
-  - **Panshi Business Components**: 组织树、选人弹窗及业务附件上传的高级用法。
-- **主动组件映射**：AI 会自动根据自然语言意图（如“生成一个表格”）映射到磐石标准的 `Table` 组件，而非标准的 `antd` 表格。
+- 给项目内的 `.cursorrules`、`.clinerules`、`.windsurfrules`、`.traerules`、`CLAUDE.md`、`AGENTS.md` 和 `.github/copilot-instructions.md` 写入一个受管规则区块。
+- 在 `~/.gemini/antigravity/skills/` 下安装：
+  - 对外入口：`panshi`
+  - 内部子 skill：`panshi-core-architecture`
+  - 内部子 skill：`panshi-pro-components`
+  - 内部子 skill：`panshi-business-components`
+- 在用户选择 `standard` 时，额外生成 `panshi-code-standard.md`。
 
-## 🚀 使用指南
+说明：
+- Gemini Antigravity 会拿到真正的 `SKILL.md` 文件。
+- 日常使用时只需要记住 `panshi` 这个入口 skill。
+- Cursor、Cline、Windsurf、Trae、GitHub Copilot 这几类环境拿到的是规则文本，不是原生 skill 安装。
 
-无需安装，在你的磐石项目根目录下直接通过 `npx` 运行即可完成 AI 规则的注入与技能安装：
+## 规则内容
+
+`panshi` 会继续分发到 3 类内部场景：
+
+1. 核心架构：`@pms/console` 导入策略、页面静态属性、`request`、权限 hooks、socket 清理。
+2. 高级组件：`Table`、`PageForm`、`ProForm`、`ProDescriptions`、`Chart` 的推荐用法。
+3. 业务组件：`CompanyLocal`、`PbsEmployeesModal`、上传组件以及 `file` API。
+
+## 使用方式
+
+在磐石项目根目录执行：
 
 ```bash
 npx bennett-lee/panshi-react-generator-cli
 ```
 
-### 运行机制
+现在默认不会再把所有 IDE 规则都装一遍。
 
-该工具会自动执行以下操作：
+- 在交互终端里执行时，CLI 会提示你选择要安装的 IDE/目标。
+- 在非交互环境里执行时，必须显式传 `--targets=...`。
 
-1. **注入/更新 AI 规则**：自动识别项目中的 `.cursorrules`, `.windsurfrules`, `.clinerules` 等文件并注入磐石开发规范。
-2. **安装全局 AI 技能**：在本地 Antigravity 环境下注册 `panshi-core-architecture` 等三大核心技能。
-3. **生成开发手册**：在项目根目录生成 `panshi-code-standard.md` 作为通用参考手册。
+例如：
 
-## 📖 规范涵盖内容
-
-### 核心架构规范 (Core Architecture)
-
-- **强制导入策略**：优先使用 `@pms/console` 中的 `PmsComponents`。若缺失所需组件，允许从 `antd` 导入。严禁直连 `@ant-design/pro-components`。
-- **Umi 路由扩展**：支持 `menuName`, `organizationType`, `order` 等静态属性的自动生成。
-- **权限控制**：通过 `hooks.useFunCode` 实现功能点按钮权限。
-
-### 高级组件规范 (Pro Components)
-
-- **ProTable**: 自动处理分页、加载状态及请求回调封装。
-- **PageForm**: 严格执行 `formPage = true` 等静态属性要求。
-- **Chart**: 统一的 `chartType` 映射逻辑。
-
-### 业务组件规范 (Business Components)
-
-- **选人与组织树**：包含 `CompanyLocal` 的高度强制要求及 `PbsEmployeesModal` 的选人配置。
-- **附件系统**：基于 `subSystem` 和 `fileOwnerType` 的文件上传与预览规范。
-
-## 🛠️ 项目结构
-
-```text
-.
-├── index.js          # CLI 入口与规则注入逻辑
-├── package.json      # 项目元数据与可执行文件定义
-├── .cursorrules      # (自动生成) Cursor 规则
-├── .clinerules       # (自动生成) Cline 规则
-└── panshi-code-standard.md  # (自动生成) 磐石前端开发标准手册
+```bash
+npx bennett-lee/panshi-react-generator-cli --targets=gemini,cursor
 ```
 
-## ⚖️ 授权协议
+```bash
+npx bennett-lee/panshi-react-generator-cli --targets=cline
+```
 
-[ISC License](LICENSE)
+```bash
+npx bennett-lee/panshi-react-generator-cli --targets=claude,codex,standard
+```
+
+支持的 target 值：
+
+- `gemini`
+- `cursor`
+- `windsurf`
+- `cline`
+- `trae`
+- `claude`
+- `codex`
+- `copilot`
+- `standard`
+
+CLI 会只更新你选中的目标；如果文件里已有自定义内容，受管区块外的内容会尽量保留。
+
+补充说明：
+
+- 未选择 `copilot` 时，不会新建 `.github/`。
+- 如果项目里残留了旧版本生成的受管 `copilot-instructions.md`，CLI 会自动清理它。
+- 只有在 `.github/` 因此变空时，才会顺带移除空目录；用户自己的 `.github` 文件不会被删。
+
+受管区块标记如下：
+
+```html
+<!-- PANSHI:BEGIN -->
+...
+<!-- PANSHI:END -->
+```
+
+## 提示词建议
+
+- 直接描述业务目标，例如“做一个项目列表页，接口是 `/api/project/list`”。
+- 如果你在 Gemini Antigravity 里显式提 skill 名，只需要提 `panshi`。
+- 如果你希望覆盖默认映射，请明确说出来，例如“这里不要 `PageForm`，用普通 `ProForm` 内嵌到详情页里”。
+- 页面静态属性统一使用 `menuName`，不要写成 `MenuName`。
+
+## 本地开发
+
+根据需要在临时目录里手动运行 CLI 做验证即可，例如：
+
+```bash
+npx bennett-lee/panshi-react-generator-cli --targets=claude,codex,standard
+```

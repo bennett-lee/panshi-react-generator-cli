@@ -1,99 +1,117 @@
-# 磐石架构 AI 智能助手技能使用指南 (AI Skills Usage Guide)
+# 磐石 AI 规则使用说明
 
-本文档旨在介绍 `panshi-react-generator-cli` 注入到您本地各类主流 AI IDE（Cursor, Windsurf, Cline, GitHub Copilot 等）中的 **三大磐石核心 AI 技能（Skills）**，以及如何通过编写恰当的提示词（Prompt）来唤醒并极大地提升您的日常开发效率。
+这份说明文档描述的是这套 CLI 注入后的实际行为，而不是理想化的“全平台原生 skill”状态。
 
----
+## 现在有哪些能力
 
-## 🌟 整体架构概览
+注入完成后，会有两类能力来源：
 
-在经过针对磐石底层 `@pms/console` 的源码高度提炼聚合后，提纯为三大核心指挥域：
+1. Gemini Antigravity
+   - 安装 1 个对外入口 skill：`panshi`
+   - 同时安装 3 个内部子 skill：`panshi-core-architecture`、`panshi-pro-components`、`panshi-business-components`
+2. 其他 AI IDE
+   - 通过规则文件读取同一套受管规则区块
+   - 不保证这些 IDE 具备“skill 发现”和“skill 触发”的原生机制
 
-1. **`panshi-core-architecture` (核心架构域)**: 负责接管路由、权限、网络请求、状态流转与自动解构。
-2. **`panshi-pro-components` (高级组件域)**: 负责接管大表单、高级表格、详情页及可视化图表。
-3. **`panshi-business-components` (业务特供域)**: 负责接管业务耦合性极强的组织树、选人组件与附件上传。
+## 安装时怎么选 IDE
 
-系统已经在您的工作区自动生成了 `.cursorrules` / `.traerules` / `.windsurfrules` 等文件。AI 在读取您的指令时，会**自动**在底层应用这些规范。
+现在安装器不会默认把所有 IDE 类型都写一遍。
 
----
+- 在交互终端里运行时，会提示你选择要安装的目标
+- 在非交互环境里运行时，需要显式传 `--targets=...`
 
-## 🎯 如何像“指挥官”一样向 AI 下达指令？
+例如：
 
-由于 AI 已经默认装载了磐石规范，您不再需要向 AI 解释诸如“请使用 `@ant-design/pro-table`”、“怎么隐藏侧边栏”等琐碎的底层逻辑。
+```bash
+npx bennett-lee/panshi-react-generator-cli --targets=gemini,cursor
+```
 
-您只需要用**最接近业务的自然语言**对 AI 提出需求即可。以下是按场景划分的超高效 Prompt 示例：
+```bash
+npx bennett-lee/panshi-react-generator-cli --targets=cline
+```
 
-### 场景 1：生成一个带有分页搜寻功能的高级表格页面
+支持的目标值：
 
-**❌ 过去的错误问法：**
+- `gemini`
+- `cursor`
+- `windsurf`
+- `cline`
+- `trae`
+- `claude`
+- `codex`
+- `copilot`
+- `standard`
 
-> “帮我用 React 和 antd 写一个页面，里面有一个表格，带分页。还要通过 fetch 调后端接口。”
-> _(后果：AI 会手写一堆 `useState`, `useEffect` 以及原生的 `antd Table`，难以维护且完全不符合磐石规范。)_
+补充说明：
 
-**✅ 现在的高效问法（利用全局主动映射能力）：**
+- `claude` 会写入项目根目录的 `CLAUDE.md`
+- `codex` 会写入项目根目录的 `AGENTS.md`
+- `standard` 会生成 `panshi-code-standard.md`
+- 如果这次没有选择 `copilot`，安装器不会创建新的 `.github/`
+- 对旧版本遗留的受管 `copilot-instructions.md`，安装器会自动清理；用户自己的 `.github` 内容会保留
 
-> “新建一个【项目列表】页面。帮我生成一个**表格**，数据请求接口是 `/api/project/list`。
-> 表格包含列：关键字、项目状态（下拉枚举：正常、归档）、创建时间。关键字只做查询不在表格展示。”
+## 你只需要记住哪个 skill
 
-**🤖 AI 的自动神级响应（依据架构与主动映射域）：**
+默认只需要记住 `panshi`。
 
-1. 听到“表格”二字，自动从 `@pms/console` 的 `PmsComponents` 解构并映射为磐石的高级 `Table` 组件。
-2. 自动给页面组件赋上静态属性 `MenuName = "项目列表"`。
-3. 知道 `Table` 没有 `dataSource` 属性，自动为您编写出基于 `request` 代理的数据请求块转换结构！
+它是总入口，会在内部把问题分发到：
 
----
+- 架构类规则
+- 通用组件类规则
+- 业务组件类规则
 
-### 场景 2：生成一个超大沉浸式的“新建单据”的表单页
+除非你在调试 skill 本身，否则不需要手动点名 3 个子 skill。
 
-**❌ 过去的错误问法：**
+## 推荐怎么提需求
 
-> “给我写一个全屏的表单页面，把左边的菜单栏藏起来，提交按钮要悬浮在最下面。还要有一个从接口回显数据的逻辑。”
+你可以直接说业务目标，不需要把底层导入和组件名写得很细：
 
-**✅ 现在的高效问法（利用全局主动映射能力）：**
+```text
+新建一个项目列表页，接口是 /api/project/list。
+列表要支持关键字、项目状态、创建时间筛选。
+```
 
-> “新建一个编辑任务详情的页面。做个**沉浸式的全屏表单**。
-> 这个页面带有 `editId`，需要在初始化时请求接口 `/api/task/detail` 进行回显，并在提交时请求 `/api/task/save`。包含标题和描述两个字段。”
+```text
+做一个任务编辑页，详情接口是 /api/task/detail，保存接口是 /api/task/save。
+这个页面是路由级全页表单。
+```
 
-**🤖 AI 的自动神级响应（依据组件域）：**
+```text
+在这个页面里加选人弹窗和附件上传，上传归属按企业级处理。
+```
 
-1. 敏锐捕捉到“表单/全屏”，自动从 `@pms/console` 的 `PmsComponents` 引出 `PageForm` 或 `ProForm`。
-2. **强制绑定 `formPage = true`, `hideMenu = true` 等只有磐石才有的静态属性。**
-3. 自动使用 `request` 做字段映射和回显，并且通过 `onFinish` 接管按钮原生的 Loading 动画。
+## 默认映射规则
 
----
+如果提示词里没有额外说明，`panshi` 会倾向于：
 
-### 场景 3：涉及组织架构、选人、文件上传的高度业务定制
+- 表格场景优先映射到 `PmsComponents.Table`
+- 路由级全页表单优先映射到 `PageForm`
+- 普通内嵌表单优先映射到 `ProForm`
+- 组织树优先映射到 `CompanyLocal`
+- 选人弹窗优先映射到 `PbsEmployeesModal`
+- 文件上传要求显式传入 `subSystem` 和 `fileOwnerType`
 
-**✅ 现在的高效问法（利用全局主动映射能力）：**
+## 几个容易写错的点
 
-> “在此页面加入一个**选人弹窗**，要求里面只能且必须选到人。此外加入一个**文件拖拽上传组件**，业务类别要求传给公司内部及企业级所有人。”
+1. 页面静态属性是 `menuName`，不是 `MenuName`。
+2. 规则要求优先从 `@pms/console` 取 `PmsComponents`，缺失时再从 `antd` 导入。
+3. 这套规则不会自动判断你“必须”用 `PageForm`；只有在路由级全页表单场景下才推荐设置 `formPage = true`。
+4. 规则文档里引用的内容都来自当前生成器，不依赖额外的 `panshi-console-components-overview` 之类外部条目。
 
-**🤖 AI 的自动神级响应（依据业务组件域）：**
+## 想覆盖默认规则时怎么说
 
-1. 听到“选人弹窗”，立刻知道要映射出磐石特供的 `PbsEmployeesModal`，并精准带上 `companyProps={{ showMember: true }}`。并知晓如果是平铺在页面的“组织树”，必定会为您套上一层带有明确 `height` 的 `div` 外壳以防止白屏。
-2. 对于文件上传，AI **绝不会无脑写 `bizType`**，而是精准切入 `subSystem={2}` 与 `fileOwnerType={2}` 作为底层驱动！
+直接在提示里把偏好说清楚：
 
----
+```text
+这里不要 PageForm，用普通 ProForm 嵌到详情卡片里。
+```
 
-### 场景 4：权限隔离与 WebSocket 消息订阅
+```text
+这个按钮权限先不要接 useFunCode，保留成普通按钮。
+```
 
-**✅ 现在的高效问法：**
+```text
+图表只需要静态展示，不接接口。
+```
 
-> “这个页面在挂载时需要监听 `update_location` 的 **socket** 推送，并在组件销毁时断开。
-> 另外页面上的【删除】按钮必须受到 `btn_delete` 的**权限点**管控”
-
-**🤖 AI 的自动神级响应（依据核心架构域）：**
-
-1. 自动从 `@pms/console` 引出 `socket`，在 `useEffect` 里调用 `listen` 并在销毁期（Destructor）干净地调用解绑函数。
-2. 绝对不会自己手搓网络拦截，而是直接采用 `const { useFunCode } = hooks;` 对按钮执行优雅无感的布尔值剥离显隐管控。
-
----
-
-## 🛠️ 最佳实践小贴士
-
-1. **直接说人话（激发主动映射）！**：在提示词中，您只需要说出“表格”、“表单”、“图表”、“组织树”、“上传组件”。系统会在底层自动拦截这些需求，抛弃原生的 HTML Tag 和低级 antd 配置，替您换上高级的 `Table`, `PageForm`, `CompanyLocal` 等！
-2. **免除 Import 焦虑**：不需要教 AI 怎么 `import`。系统兜底强规则 `panshi-console-components-overview` 已经把它“拷在”了 `import { PmsComponents } from '@pms/console'` 这一条纯净路径上。
-3. **版本隔离**：由于此工具包内包含并强约束的是公司目前 `@pms/console: 2.4.17` 时代的体系，对于未来若是出现大跨度 Breaking Changes 时，仅需重新运行并微更新您的工具字典包即可。
-
----
-
-最后，尽情向您的 AI 发号施令吧。祝您编码愉快，效率翻倍！火箭起飞！🚀
+这样做比让模型猜测“是不是要套磐石默认方案”更稳定。

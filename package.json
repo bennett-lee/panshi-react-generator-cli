@@ -1,10 +1,10 @@
 {
   "name": "panshi-react-generator-skill",
   "version": "1.0.1",
-  "description": "",
+  "description": "Inject managed Panshi framework rules into IDE config files and install Gemini Antigravity skills.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"No test suite configured\""
   },
   "keywords": [],
   "author": "",

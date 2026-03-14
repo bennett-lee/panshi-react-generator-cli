@@ -1,379 +1,546 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
-const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const path = require('path');
+const readline = require('readline');
 
-console.log('🔄 开始安装 Panshi Framework AI 规则(优化聚合版)...');
-
-const skillContent1 = `---
-name: panshi-core-architecture
-description: "This skill defines the core architecture, routing, auto-import mapping, user context, request handling, auth, and socket communication for the Panshi framework (@pms/console)."
-category: development
-risk: safe
----
-
-# Panshi Framework Rules
-When generating code or extracting data within the Panshi framework, MUST adhere to:
-
-## PANSHI CORE ARCHITECTURE RULES
-
-This skill consolidates the core foundational guidelines for building React applications within the Panshi framework (\`@pms/console\`).
-
-## 1. Components Overview & Import Strategy (CRITICAL)
-**CRITICAL RULE:** ALWAYS prioritize the corporate standard \`PmsComponents\` from \`@pms/console\`. If a component is NOT available in \`PmsComponents\`, import it from \`antd\`. DO NOT import from \`@ant-design/pro-components\` directly.
-
-\\\`\\\`\\\`javascript
-import { request, user, file, server, socket, history, hooks, PmsComponents } from '@pms/console';
-// ALWAYS DESTRUCTURE FROM PmsComponents
-const { PageContainer, Card, Table, ProForm, ProFormText, Chart, CompanyLocal } = PmsComponents;
-\\\`\\\`\\\`
-
-## 2. Umi Routing & Page Generation Rules (详细版)
-页面组件需定义静态属性以适配基座（Backbone）导航与权限系统。
-
-\\\`\\\`\\\`javascript
-const MyPage = () => { return <div>内容</div>; };
-
-// Routing Props
-MyPage.menuName = "页面名称"; // (必须) 侧边栏/面包屑显示的文本
-MyPage.organizationType = [1, 2]; // (可选) 适配层级: 1:企业(Group), 2:分公司(Company), 3:项目(Project)
-MyPage.order = 3; // 排序权重
-MyPage.hideMenu = true; // 是否在侧边栏隐藏
-MyPage.hideBreadCrumb = true; // 是否隐藏面包屑
-MyPage.closeAuthValidation = true; // 设为 true 则不走全局权限拦截
-
-export default MyPage;
-\\\`\\\`\\\`
-
-**面包屑名称动态传递 (API Detail/Edit Pages):**
-\\\`\\\`\\\`javascript
-// 在跳转时通过 state 携带字段，基座会自动识别并替换面包屑
-history.push({ 
-  pathname: '/detail', 
-  state: { 
-    pathName: '项目名称', // 替换路由级面包屑
-    formName: '表单名称'  // 替换组件级面包屑
-  }
-});
-\\\`\\\`\\\`
-
-## 3. User & Level Context (\`user\`)
-\\\`\\\`\\\`javascript
-const { mid, userName, coId, coName, avatar } = user; 
-// 严禁直接依赖 user.type!! 必须使用以下 boolean 标记判断层级逻辑
-if (user.company) {}    // 当前处于企业(集团)层级
-if (user.subCompany) {} // 当前处于分公司层级
-if (user.project) {}    // 当前处于项目层级
-
-// 鉴权判断
-if (user.authMap['btn_delete']) {} 
-\\\`\\\`\\\`
-
-## 4. API Requests (\`request\`)
-\\\`\\\`\\\`javascript
-// 核心：不需要手动添加 Token 或 Content-Type
-request.get('/api/users', { params: { id: 1 } });
-request.post('/api/users', { data: { name: 'Admin' } });
-
-// 特殊请求类型
-// 1. 上传: 必须使用 FormData 且 requestType: 'form'
-request.post('/api/upload', formData, { requestType: 'form' });
-
-// 2. 下载/流: 必须指定 responseType: 'blob'
-request.get('/api/export', { params, responseType: 'blob' });
-
-// 3. 配置
-request.get('/api/slow', { timeout: 10000, skipErrorHandler: true });
-\\\`\\\`\\\`
-
-## 5. Hooks for Permissions & Data (\`hooks\`)
-\\\`\\\`\\\`javascript
-const { useFunCode, useTableParams } = hooks;
-
-// 按钮级权限 (控制受控组件显隐)
-const funAuth = useFunCode({ 'btn_add': { status: false }, 'btn_edit': { status: true } });
-{funAuth['btn_add'] && <Button>新增</Button>}
-
-// 页面级表格参数快照 (针对详情页返回时恢复搜索状态)
-const [params, setParams] = useTableParams('unique-page-key');
-\\\`\\\`\\\`
-`;
-
-const skillContent2 = `---
-name: panshi-pro-components
-description: "This skill defines how to use high-level layout, table, form, chart, and description components in the Panshi framework (@pms/console). You should proactively and automatically map generic component requests (like 'table', 'form', 'chart') to these specific Panshi components without the user explicitly naming them."
-category: development
-risk: safe
----
-
-# panshi-pro-components
-
-## 1. ProTable (\`Table\`)
-**核心特性：** 内置分页、加载、搜索表单、自动高度。
-
-\\\`\\\`\\\`javascript
-import { PmsComponents, request } from '@pms/console';
-const { Table } = PmsComponents;
-import { useRef } from 'react';
-
-const MyList = () => {
-  const actionRef = useRef(); // 调用 actionRef.current?.reload() 刷新
-
-  return (
-    <Table
-      headerTitle="列表标题"
-      actionRef={actionRef}
-      rowKey="id"
-      search={{ labelWidth: 'auto', layout: 'horizontal' }}
-      request={async (params, sort, filter) => {
-        // params 包含分页 (current, pageSize) 和搜索表单字段
-        const res = await request('/api/getList', { params });
-        return { data: res.list || [], success: true, total: res.total || 0 };
-      }}
-      toolBarRender={() => [<Button key="add">新建</Button>]}
-      columns={[
-         { title: '姓名', dataIndex: 'name', copyable: true },
-         { 
-           title: '状态', 
-           dataIndex: 'status', 
-           valueType: 'select', 
-           valueEnum: { 0: { text: '停用', status: 'Error' }, 1: { text: '正常', status: 'Success' } } 
-         },
-         { title: '进度', dataIndex: 'p', valueType: 'progress' },
-         { title: '金额', dataIndex: 'm', valueType: 'money' },
-         { title: '更新时间', dataIndex: 'time', valueType: 'dateTime', hideInSearch: true },
-         { 
-           title: '操作', 
-           valueType: 'option', 
-           render: (text, record) => [<a key="e">编辑</a>] 
-         }
-      ]}
-    />
-  );
+const MANAGED_BLOCK_START = '<!-- PANSHI:BEGIN -->';
+const MANAGED_BLOCK_END = '<!-- PANSHI:END -->';
+const LEGACY_HEADER = '# Panshi Framework Rules';
+const TARGET_DEFINITIONS = [
+  { id: 'gemini', label: 'Gemini Antigravity', installType: 'skill' },
+  { id: 'cursor', label: 'Cursor', installType: 'rule', relativePath: '.cursorrules' },
+  { id: 'windsurf', label: 'Windsurf', installType: 'rule', relativePath: '.windsurfrules' },
+  { id: 'cline', label: 'Cline', installType: 'rule', relativePath: '.clinerules' },
+  { id: 'trae', label: 'Trae', installType: 'rule', relativePath: '.traerules' },
+  { id: 'claude', label: 'Claude Code', installType: 'rule', relativePath: 'CLAUDE.md' },
+  { id: 'codex', label: 'OpenAI Codex', installType: 'rule', relativePath: 'AGENTS.md' },
+  {
+    id: 'copilot',
+    label: 'GitHub Copilot',
+    installType: 'rule',
+    relativePath: path.join('.github', 'copilot-instructions.md'),
+  },
+  { id: 'standard', label: 'Panshi Code Standard', installType: 'doc' },
+];
+const TARGET_ALIASES = {
+  github: 'copilot',
+  'github-copilot': 'copilot',
+  anthropic: 'claude',
+  'claude-code': 'claude',
+  openai: 'codex',
+  agents: 'codex',
 };
-\\\`\\\`\\\`
 
-## 2. Forms (\`ProForm\`, \`PageForm\`, \`ModalForm\`)
-- **\`ProForm\`**: 标准行内/气泡表单。
-- **\`PageForm\`**: **最常用**。占据全页，带底部悬浮操作栏。静态属性 \`formPage = true\` 必要。
-- **\`ModalForm\` / \`DrawerForm\`**: 弹窗/抽屉风格。
-
-\\\`\\\`\\\`javascript
-const { PageForm, ProFormText, ProFormSelect, ProFormDateRangePicker, ProFormDigit } = PmsComponents;
-
-const MyPageForm = ({ editId }) => (
-  <PageForm
-    card={true}
-    grid={true} // 启用栅格化
-    request={async () => {
-       if (!editId) return {};
-       return await request('/api/detail', { params: { id: editId } }); // 自动填充 name 匹配的字段
-    }}
-    onFinish={async (values) => {
-       await request('/api/save', { method: 'post', data: values });
-       return true; // 返回 true 自动关闭(如果是 Modal) 或进入提交态
-    }}
-  >
-    <ProFormText name="title" label="标题" colProps={{ span: 8 }} rules={[{required: true}]} />
-    <ProFormSelect 
-      name="type" 
-      label="类型" 
-      colProps={{ span: 8 }} 
-      request={async () => [{label: 'A', value: 1}]} 
-    />
-    <ProFormDateRangePicker name="date" label="有效期" colProps={{ span: 8 }} />
-    <ProFormDigit name="count" label="数量" colProps={{ span: 8 }} min={1} />
-  </PageForm>
-);
-
-MyPageForm.formPage = true; // 关键
-\\\`\\\`\\\`
-
-## 3. ProDescriptions (\`Descriptions\`)
-用于展示详情。
-\\\`\\\`\\\`javascript
-const { ProDescriptions } = PmsComponents;
-<ProDescriptions
-  title="业务详情"
-  column={2}
-  request={async () => ({ success: true, data: await request('/api/detail') })}
-  columns={[
-    { dataIndex: 'name', label: '名称' },
-    { dataIndex: 'state', label: '状态', valueType: 'select', valueEnum: { ... } }
-  ]}
-/>
-\\\`\\\`\\\`
-
-## 4. Charts (\`Chart\`)
-\\\`\\\`\\\`javascript
-const { Chart } = PmsComponents;
-<Chart 
-  chartType="DualAxes" // 常用: Line, Column, Bar, Pie, DualAxes
-  data={[data1, data2]}
-  xField="time"
-  yField={['count', 'value']}
-  geometryOptions={[{ geometry: 'line' }, { geometry: 'line' }]}
-/>
-\\\`\\\`\\\`
-`;
-
-const skillContent3 = `---
-name: panshi-business-components
-description: "This skill defines the usage of specialized business components like organization tree, member selection, and file uploads in the Panshi framework (@pms/console)."
-category: development
-risk: safe
----
-
-# panshi-business-components
-
-## 1. Organization & Member Tree (\`CompanyLocal\`)
-**强制规则：** 必须套一层有 \`height\` 的 \`div\`。
-
-\\\`\\\`\\\`javascript
-import { PmsComponents } from '@pms/console';
-const { CompanyLocal } = PmsComponents;
-
-<div style={{ height: 'calc(100vh - 200px)' }}> 
-  <CompanyLocal 
-    showMember={true}       // 是否加载人员
-    multiple={true}         // 多选
-    checkStrictly={false}   // 级联选中
-    onChange={(keys, nodes) => { 
-      // keys: 选中的ID数组, nodes: 选中的节点详情 (包含 type: 1企业, 2分公司, 3项目, 4部门, null/5人员)
-      console.log(keys, nodes);
-    }} 
-  />
-</div>
-\\\`\\\`\\\`
-
-## 2. Member Selection Modal (\`PbsEmployeesModal\`)
-\\\`\\\`\\\`javascript
-const { PbsEmployeesModal } = PmsComponents;
-
-<PbsEmployeesModal
-  open={visible}
-  title="选择审批人"
-  companyProps={{ 
-     showMember: true,
-     multiple: false,
-     // canSelectLevel: [4] // 仅允许选部门
-  }} 
-  onChange={(keys, nodes) => { /* Handle selection */ }}
-  onClose={() => setVisible(false)}
-/>
-\\\`\\\`\\\`
-
-## 3. File Uploads (\`ProFormUpload\`)
-**上传上下文规则：** \`subSystem\` (子系统码) 和 \`fileOwnerType\` (归属码) 决定了文件存储的隔离级别。
-- \`subSystem\`: 0:公共, 1:平台, 2:企业, 3:项目.
-- \`fileOwnerType\`: 0:个人, 1:业务, 2:企业, 3:项目.
-
-\\\`\\\`\\\`javascript
-const { ProFormUploadDragger, ProFormUploadButton } = PmsComponents;
-
-// 1. 拖拽上传 (带预览)
-<ProFormUploadDragger
-  name="files"
-  label="上传附件"
-  max={5}
-  accept=".pdf,.doc,.docx,.png,.jpg"
-  subSystem={2} 
-  fileOwnerType={2}
-  fieldProps={{
-    onSuccess: (res) => console.log('上传成功', res)
-  }}
-/>
-
-// 2. 按钮上传 (简洁版)
-<ProFormUploadButton
-  name="logo"
-  label="上传Logo"
-  title="点击上传"
-  subSystem={2}
-  fileOwnerType={2}
-/>
-\\\`\\\`\\\`
-
-## 4. File Actions (\`file\`)
-\\\`\\\`\\\`javascript
-import { file } from '@pms/console';
-
-// 预览 (弹窗预览图片/PDF)
-file.preview('file-uuid');
-
-// 下载
-file.download('file-uuid', '文件名.pdf');
-
-// 获取下载链接
-const url = file.getUrl('file-uuid');
-\\\`\\\`\\\`
-`;
-
-// ==================
-// 全渠道 IDE 规则注入逻辑 (优化版)
-// ==================
-const projectDir = process.cwd();
-
-const antigravityDir1 = path.join(os.homedir(), '.gemini', 'antigravity', 'skills', 'panshi-core-architecture');
-const antigravityDir2 = path.join(os.homedir(), '.gemini', 'antigravity', 'skills', 'panshi-pro-components');
-const antigravityDir3 = path.join(os.homedir(), '.gemini', 'antigravity', 'skills', 'panshi-business-components');
-
-try {
-  if (!fs.existsSync(antigravityDir1)) fs.mkdirSync(antigravityDir1, { recursive: true });
-  fs.writeFileSync(path.join(antigravityDir1, 'SKILL.md'), skillContent1);
-  if (!fs.existsSync(antigravityDir2)) fs.mkdirSync(antigravityDir2, { recursive: true });
-  fs.writeFileSync(path.join(antigravityDir2, 'SKILL.md'), skillContent2);
-  if (!fs.existsSync(antigravityDir3)) fs.mkdirSync(antigravityDir3, { recursive: true });
-  fs.writeFileSync(path.join(antigravityDir3, 'SKILL.md'), skillContent3);
-  console.log('✅ [Antigravity] 聚合版核心技能全局安装成功！(已合并3大模块)');
-} catch (e) { 
-  console.error("Antigravity SDK Err:", e);
+function joinLines(lines) {
+  return lines.join('\n');
 }
 
-const purePrompt1 = "\n--- PANSHI CORE ARCHITECTURE RULES ---\n" + (skillContent1.split("## Purpose")[1] || skillContent1);
-const purePrompt2 = "\n--- PANSHI PRO COMPONENTS RULES ---\n" + (skillContent2.split("## Purpose")[1] || skillContent2);
-const purePrompt3 = "\n--- PANSHI BUSINESS COMPONENTS RULES ---\n" + (skillContent3.split("## Purpose")[1] || skillContent3);
-
-const purePrompt = purePrompt1 + "\n" + purePrompt2 + "\n" + purePrompt3;
-
-function injectRule(filePath, targetName) {
-  try {
-    let existingContent = '';
-    if (fs.existsSync(filePath)) {
-      existingContent = fs.readFileSync(filePath, 'utf8');
-    }
-    
-    const magicMark = '# Panshi Framework Rules';
-    if (existingContent.includes(magicMark)) {
-      existingContent = existingContent.split(magicMark)[0];
-    } else if (existingContent.includes('# Panshi React Generator Rules')) {
-      existingContent = existingContent.split('# Panshi React Generator Rules')[0];
-    }
-    
-    const appendText = `\n\n${magicMark}\nWhen generating code or extracting data within the Panshi framework, MUST adhere to:\n${purePrompt}`;
-    fs.writeFileSync(filePath, existingContent.trim() + appendText);
-    console.log(`✅ [${targetName}] 成功注入聚合版集成规则`);
-  } catch(e) {
-    console.error(`⚠️ [${targetName}] 配置注入异常:`, e.message);
+function printUsage() {
+  console.log('用法:');
+  console.log('  panshi-react-generator --targets=gemini,cursor');
+  console.log('  panshi-react-generator --targets=cline');
+  console.log('  panshi-react-generator --targets=claude,codex,standard');
+  console.log('');
+  console.log('支持的 targets:');
+  for (const target of TARGET_DEFINITIONS) {
+    console.log(`  - ${target.id}`);
   }
 }
 
-injectRule(path.join(projectDir, '.cursorrules'), 'Cursor');
-injectRule(path.join(projectDir, '.windsurfrules'), 'Windsurf');
-injectRule(path.join(projectDir, '.clinerules'), 'Cline');
-injectRule(path.join(projectDir, '.traerules'), 'Trae');
+function normalizeTargetName(value) {
+  const normalized = value.trim().toLowerCase();
+  return TARGET_ALIASES[normalized] || normalized;
+}
 
-const githubDir = path.join(projectDir, '.github');
-const copilotRulePath = path.join(githubDir, 'copilot-instructions.md');
-if (!fs.existsSync(githubDir)) fs.mkdirSync(githubDir, { recursive: true });
-injectRule(copilotRulePath, 'GitHub Copilot');
+function parseTargetsList(rawValue) {
+  const selected = [];
 
-const genericRulePath = path.join(projectDir, 'panshi-code-standard.md');
-try {
-  fs.writeFileSync(genericRulePath, `# 磐石前端规范 (Panshi Code Standard - 聚合版)\n\n遇到需求时自动使用以下三大规范模块：\n${purePrompt}`);
-  console.log('✅ [通用型大模型助手] 成功生成兜底指导书 panshi-code-standard.md');
-} catch(e) {}
+  for (const item of rawValue.split(',')) {
+    const normalized = normalizeTargetName(item);
+    if (!normalized) {
+      continue;
+    }
+    if (!TARGET_DEFINITIONS.some((target) => target.id === normalized)) {
+      throw new Error(`Unsupported IDE target: ${item.trim()}`);
+    }
+    if (!selected.includes(normalized)) {
+      selected.push(normalized);
+    }
+  }
 
-console.log('\n🚀 磐石架构聚合化清理与部署完毕！代码仓库与提示词体积大幅缩减、条理更加清晰！');
+  if (selected.length === 0) {
+    throw new Error('No IDE targets were provided.');
+  }
+
+  return selected;
+}
+
+function parseCliOptions(argv) {
+  const args = [...argv];
+  let rawTargets = null;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--help' || arg === '-h') {
+      return { help: true };
+    }
+
+    if (arg.startsWith('--targets=')) {
+      rawTargets = arg.slice('--targets='.length);
+      continue;
+    }
+
+    if (arg === '--targets' || arg === '-t') {
+      rawTargets = args[index + 1];
+      index += 1;
+    }
+  }
+
+  return { help: false, rawTargets };
+}
+
+function askQuestion(promptText) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(promptText, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
+async function promptForTargets() {
+  console.log('请选择需要安装规则或 skill 的 IDE/目标，支持多选。');
+  TARGET_DEFINITIONS.forEach((target, index) => {
+    console.log(`  ${index + 1}. ${target.label} (${target.id})`);
+  });
+
+  while (true) {
+    const answer = await askQuestion('请输入编号或 id，多个值用逗号分隔: ');
+    const normalizedAnswer = answer
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => {
+        const index = Number(item);
+        if (!Number.isNaN(index) && index >= 1 && index <= TARGET_DEFINITIONS.length) {
+          return TARGET_DEFINITIONS[index - 1].id;
+        }
+        return item;
+      })
+      .join(',');
+
+    try {
+      return parseTargetsList(normalizedAnswer);
+    } catch (error) {
+      console.log(`输入无效: ${error.message}`);
+    }
+  }
+}
+
+async function resolveSelectedTargets(argv) {
+  const options = parseCliOptions(argv);
+
+  if (options.help) {
+    printUsage();
+    return null;
+  }
+
+  if (options.rawTargets) {
+    return parseTargetsList(options.rawTargets);
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error(
+      'No IDE targets were provided. Re-run with --targets=gemini,cursor or use an interactive terminal to choose.'
+    );
+  }
+
+  return promptForTargets();
+}
+
+const childSkills = [
+  {
+    name: 'panshi-core-architecture',
+    title: 'Panshi Core Architecture',
+    description:
+      'Use when generating or reviewing React pages in projects built on @pms/console with routing, request, auth, or socket concerns',
+    guide: joinLines([
+      '## When to Use',
+      '- 页面基于 `@pms/console`，并且涉及路由、权限、请求、用户上下文或 socket。',
+      '- 需要决定页面静态属性、通用导入策略或全局能力接入方式。',
+      '',
+      '## Rules',
+      '1. 优先从 `@pms/console` 导入 `request`、`hooks`、`history`、`socket`、`user` 和 `PmsComponents`。',
+      '2. 组件优先从 `PmsComponents` 取；只有缺失时才从 `antd` 导入，避免直连 `@ant-design/pro-components`。',
+      '3. 页面标题静态属性统一使用 `menuName`。只有在页面确实需要时再补 `organizationType`、`order`、`hideMenu` 等扩展字段。',
+      '4. 网络请求统一走 `request`，不要在页面里手写 token、拦截器或重复封装。',
+      '5. 权限按钮优先用 `hooks.useFunCode`，socket 监听必须在 `useEffect` 清理函数里解绑。',
+      '',
+      '## Example',
+      '```javascript',
+      "import { history, hooks, request, socket, user, PmsComponents } from '@pms/console';",
+      "import { Button } from 'antd';",
+      '',
+      'const { Table } = PmsComponents;',
+      'const { useFunCode } = hooks;',
+      '',
+      'const ProjectList = () => {',
+      "  const funAuth = useFunCode({ btn_delete: { status: false } });",
+      '',
+      '  useEffect(() => {',
+      "    const unlisten = socket.listen('update_location', () => {});",
+      '    return () => unlisten?.();',
+      '  }, []);',
+      '',
+      '  return funAuth.btn_delete ? <Button danger>删除</Button> : null;',
+      '};',
+      '',
+      "ProjectList.menuName = '项目列表';",
+      '```',
+    ]),
+  },
+  {
+    name: 'panshi-pro-components',
+    title: 'Panshi Pro Components',
+    description:
+      'Use when the request involves tables, forms, descriptions, or charts in a Panshi project built on @pms/console',
+    guide: joinLines([
+      '## When to Use',
+      '- 需求里出现表格、搜索表单、全页表单、详情展示或图表。',
+      '- 需要把自然语言里的“表格”“表单”“图表”映射成磐石标准组件。',
+      '',
+      '## Rules',
+      '1. 列表页优先使用 `PmsComponents.Table`，通过 `request` 返回 `{ data, success, total }`。',
+      '2. 路由级全页表单优先用 `PageForm`，并且只在这种页面上设置 `formPage = true`。',
+      '3. 普通内嵌表单用 `ProForm`，弹窗或抽屉场景再选 `ModalForm` 或 `DrawerForm`。',
+      '4. 详情展示使用 `ProDescriptions`，图表统一走 `Chart`。',
+      '',
+      '## Example',
+      '```javascript',
+      "import { PmsComponents, request } from '@pms/console';",
+      "import { Button } from 'antd';",
+      "import { useRef } from 'react';",
+      '',
+      'const { Table, PageForm, ProFormText } = PmsComponents;',
+      '',
+      'const ProjectList = () => {',
+      '  const actionRef = useRef();',
+      '',
+      '  return (',
+      '    <Table',
+      '      actionRef={actionRef}',
+      '      rowKey="id"',
+      '      request={async (params) => {',
+      "        const res = await request('/api/project/list', { params });",
+      '        return { data: res.list || [], success: true, total: res.total || 0 };',
+      '      }}',
+      '      toolBarRender={() => [<Button key="create">新建</Button>]}',
+      '    />',
+      '  );',
+      '};',
+      '',
+      'const ProjectFormPage = () => (',
+      '  <PageForm onFinish={async (values) => request.post(\'/api/project/save\', { data: values })}>',
+      '    <ProFormText name="title" label="标题" rules={[{ required: true }]} />',
+      '  </PageForm>',
+      ');',
+      '',
+      'ProjectFormPage.formPage = true;',
+      '```',
+    ]),
+  },
+  {
+    name: 'panshi-business-components',
+    title: 'Panshi Business Components',
+    description:
+      'Use when the request involves organization trees, member pickers, or file uploads in a Panshi project built on @pms/console',
+    guide: joinLines([
+      '## When to Use',
+      '- 页面里有组织树、选人弹窗、附件上传、文件预览或下载。',
+      '- 需要决定 `subSystem`、`fileOwnerType` 这类业务隔离参数。',
+      '',
+      '## Rules',
+      '1. `CompanyLocal` 外层必须提供明确高度容器，避免树组件白屏或塌陷。',
+      '2. 选人弹窗优先用 `PbsEmployeesModal`，通过 `companyProps` 限制可选层级和是否显示成员。',
+      '3. 上传组件统一显式传入 `subSystem` 和 `fileOwnerType`，不要写模糊的默认值。',
+      '4. 文件预览、下载和直链获取统一走 `file.preview`、`file.download`、`file.getUrl`。',
+      '',
+      '## Example',
+      '```javascript',
+      "import { file, PmsComponents } from '@pms/console';",
+      '',
+      'const { CompanyLocal, PbsEmployeesModal, ProFormUploadDragger } = PmsComponents;',
+      '',
+      '<div style={{ height: \'calc(100vh - 200px)\' }}>',
+      '  <CompanyLocal showMember multiple />',
+      '</div>;',
+      '',
+      '<PbsEmployeesModal',
+      '  open={visible}',
+      '  companyProps={{ showMember: true, multiple: false }}',
+      '  onClose={() => setVisible(false)}',
+      '/>;',
+      '',
+      '<ProFormUploadDragger',
+      '  name="files"',
+      '  subSystem={2}',
+      '  fileOwnerType={2}',
+      '/>;',
+      '',
+      "file.preview('file-uuid');",
+      '```',
+    ]),
+  },
+];
+
+const rootSkill = {
+  name: 'panshi',
+  title: 'Panshi',
+  description:
+    'Use when working in a Panshi React project built on @pms/console and you want the single entry skill before choosing detailed guidance',
+  guide: joinLines([
+    '## When to Use',
+    '- 只要当前项目是基于 `@pms/console` 的磐石前端项目，就先从这个总 skill 进入。',
+    '- 当你只想记住一个 skill 名称，而不想手动判断该先读架构、通用组件还是业务组件规则时，也先读这里。',
+    '',
+    '## How It Delegates',
+    '1. 路由、页面静态属性、`request`、权限、socket 相关问题，继续读取 `panshi-core-architecture`。',
+    '2. 表格、表单、详情和图表相关问题，继续读取 `panshi-pro-components`。',
+    '3. 组织树、选人弹窗、附件上传和文件操作相关问题，继续读取 `panshi-business-components`。',
+    '',
+    '## External Entry',
+    '- 对外统一入口只暴露 `panshi`。',
+    '- 这 3 个子 skill 视为内部拆分，用来降低单个 skill 体积并提高命中准确度。',
+  ]),
+};
+
+function buildSkillFile(skill) {
+  return joinLines([
+    '---',
+    `name: ${skill.name}`,
+    `description: ${skill.description}`,
+    '---',
+    '',
+    `# ${skill.title}`,
+    '',
+    skill.guide.trim(),
+    '',
+  ]);
+}
+
+function buildManagedBlock() {
+  const sections = [];
+
+  sections.push('## Entry Skill');
+  sections.push('');
+  sections.push('对外统一入口 skill：`panshi`。');
+  sections.push('当任务进入磐石项目时，优先使用这个入口，再按场景进入内部规则。');
+  sections.push('');
+  sections.push('内部拆分：');
+  sections.push('- 架构类问题对应 `panshi-core-architecture`');
+  sections.push('- 表格/表单/图表类问题对应 `panshi-pro-components`');
+  sections.push('- 业务组件类问题对应 `panshi-business-components`');
+  sections.push('');
+
+  for (const skill of childSkills) {
+    sections.push(`## ${skill.title}`);
+    sections.push('');
+    sections.push(skill.guide.trim());
+    sections.push('');
+  }
+
+  return joinLines([
+    MANAGED_BLOCK_START,
+    LEGACY_HEADER,
+    'When generating or reviewing code in a Panshi project, follow these managed rules.',
+    '',
+    ...sections,
+    MANAGED_BLOCK_END,
+    '',
+  ]);
+}
+
+function upsertManagedBlock(existingContent, blockContent) {
+  const content = existingContent.replace(/\r\n/g, '\n');
+  const startIndex = content.indexOf(MANAGED_BLOCK_START);
+  const endIndex = content.indexOf(MANAGED_BLOCK_END);
+
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    const before = content.slice(0, startIndex).trimEnd();
+    const after = content.slice(endIndex + MANAGED_BLOCK_END.length).trimStart();
+    const parts = [];
+
+    if (before) {
+      parts.push(before);
+    }
+    parts.push(blockContent.trimEnd());
+    if (after) {
+      parts.push(after);
+    }
+
+    return `${parts.join('\n\n')}\n`;
+  }
+
+  const legacyIndex = content.indexOf(LEGACY_HEADER);
+
+  if (legacyIndex !== -1) {
+    const before = content.slice(0, legacyIndex).trimEnd();
+    return before ? `${before}\n\n${blockContent}` : blockContent;
+  }
+
+  const trimmed = content.trimEnd();
+  return trimmed ? `${trimmed}\n\n${blockContent}` : blockContent;
+}
+
+function removeManagedBlock(existingContent) {
+  const content = existingContent.replace(/\r\n/g, '\n');
+  const startIndex = content.indexOf(MANAGED_BLOCK_START);
+  const endIndex = content.indexOf(MANAGED_BLOCK_END);
+
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    const before = content.slice(0, startIndex).trimEnd();
+    const after = content.slice(endIndex + MANAGED_BLOCK_END.length).trimStart();
+    const parts = [];
+
+    if (before) {
+      parts.push(before);
+    }
+    if (after) {
+      parts.push(after);
+    }
+
+    return parts.length > 0 ? `${parts.join('\n\n')}\n` : '';
+  }
+
+  const legacyIndex = content.indexOf(LEGACY_HEADER);
+
+  if (legacyIndex !== -1) {
+    const before = content.slice(0, legacyIndex).trimEnd();
+    return before ? `${before}\n` : '';
+  }
+
+  return content;
+}
+
+function writeSkillFiles(homeDir) {
+  const skillsRoot = path.join(homeDir, '.gemini', 'antigravity', 'skills');
+
+  const allSkills = [rootSkill, ...childSkills];
+
+  for (const skill of allSkills) {
+    const skillDir = path.join(skillsRoot, skill.name);
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), buildSkillFile(skill), 'utf8');
+  }
+}
+
+function injectRule(filePath, targetName, blockContent) {
+  try {
+    const existingContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+    const nextContent = upsertManagedBlock(existingContent, blockContent);
+
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, nextContent, 'utf8');
+    console.log(`✅ [${targetName}] 已更新受管规则块`);
+  } catch (error) {
+    console.error(`⚠️ [${targetName}] 配置注入异常:`, error.message);
+  }
+}
+
+function tryRemoveDirectoryIfEmpty(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    return;
+  }
+
+  if (fs.readdirSync(dirPath).length === 0) {
+    fs.rmdirSync(dirPath);
+  }
+}
+
+function cleanupCopilotRule(projectDir) {
+  const filePath = path.join(projectDir, '.github', 'copilot-instructions.md');
+
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  const existingContent = fs.readFileSync(filePath, 'utf8');
+  const nextContent = removeManagedBlock(existingContent).trim();
+
+  if (nextContent) {
+    fs.writeFileSync(filePath, `${nextContent}\n`, 'utf8');
+    return;
+  }
+
+  fs.unlinkSync(filePath);
+  tryRemoveDirectoryIfEmpty(path.dirname(filePath));
+  console.log('✅ [GitHub Copilot] 未选中，已清理受管 copilot 规则文件');
+}
+
+function writeCodeStandard(projectDir, blockContent) {
+  const codeStandard = joinLines([
+    '# 磐石前端规范',
+    '',
+    '以下内容由 CLI 自动生成，和各 IDE 规则文件中的受管区块保持一致。',
+    '',
+    blockContent.trim(),
+    '',
+  ]);
+
+  fs.writeFileSync(path.join(projectDir, 'panshi-code-standard.md'), codeStandard, 'utf8');
+  console.log('✅ [通用参考] 已生成 panshi-code-standard.md');
+}
+
+async function main() {
+  console.log('🔄 开始安装 Panshi Framework AI 规则...');
+
+  const projectDir = process.cwd();
+  const homeDir = os.homedir();
+  const blockContent = buildManagedBlock();
+  const selectedTargets = await resolveSelectedTargets(process.argv.slice(2));
+
+  if (!selectedTargets) {
+    return;
+  }
+
+  const selectedSet = new Set(selectedTargets);
+
+  if (selectedSet.has('gemini')) {
+    try {
+      writeSkillFiles(homeDir);
+      console.log('✅ [Gemini Antigravity] 已安装 1 个入口 skill 和 3 个内部子 skill');
+    } catch (error) {
+      console.error('⚠️ [Gemini Antigravity] 技能安装失败:', error.message);
+    }
+  }
+
+  for (const target of TARGET_DEFINITIONS) {
+    if (target.installType !== 'rule' || !selectedSet.has(target.id)) {
+      continue;
+    }
+    injectRule(path.join(projectDir, target.relativePath), target.label, blockContent);
+  }
+
+  if (!selectedSet.has('copilot')) {
+    cleanupCopilotRule(projectDir);
+  }
+
+  if (selectedSet.has('standard')) {
+    writeCodeStandard(projectDir, blockContent);
+  }
+
+  console.log('\n🚀 磐石规则与技能已完成更新。');
+}
+
+main().catch((error) => {
+  console.error(`❌ ${error.message}`);
+  process.exitCode = 1;
+});
